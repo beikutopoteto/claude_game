@@ -12,8 +12,9 @@ def fetch(sym, start_ms, end_ms):
     for c in df.columns[1:]: df[c]=df[c].astype(float)
     df["open_time"]=pd.to_datetime(df.open_time,unit="ms",utc=True)
     return df.drop_duplicates("open_time").set_index("open_time")
-end=int(time.time()*1000); start=end-3*365*24*3600_000
-d=os.path.dirname(os.path.abspath(__file__))
-for s in ["XRPUSDT","BTCUSDT","ETHUSDT"]:
-    df=fetch(s,start,end); df.to_parquet(f"{d}/data/{s}_1h.parquet") if False else df.to_csv(f"{d}/data/{s}_1h.csv")
-    print(s,len(df),df.index[0],df.index[-1])
+if __name__=="__main__":
+  end=int(time.time()*1000); start=end-3*365*24*3600_000
+  d=os.path.dirname(os.path.abspath(__file__))
+  for s in ["XRPUSDT","BTCUSDT","ETHUSDT"]:
+      df=fetch(s,start,end); df.to_parquet(f"{d}/data/{s}_1h.parquet") if False else df.to_csv(f"{d}/data/{s}_1h.csv")
+      print(s,len(df),df.index[0],df.index[-1])
