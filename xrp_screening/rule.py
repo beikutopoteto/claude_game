@@ -45,25 +45,26 @@ def evaluate(sym,rule,period=None):
     return dict(sym=sym,n_hours=len(df),sig_rate=sig.mean(),A=A,B=B,AB=A/B if B else np.nan,z=z,p_AB=p,
                 base_AB=df.A.mean()/df.B.mean(),n_trades=len(tr),win=wins/len(tr) if len(tr) else np.nan,p_win=bp,
                 mean_ret_pct=tr.mean()*100,p_ret=tp,total_ret_pct=(np.prod(1+tr)-1)*100)
-# ---- 1) calibration on XRP in-sample (first 70%) : 3 candidate thresholds only ----
-xi=feats(load("XRPUSDT")).dropna().index; cut=xi[int(len(xi)*.7)]; gap=cut+pd.Timedelta(hours=24)
-IS=lambda ix: ix<cut; OOS=lambda ix: ix>=gap
-cands={q:(lambda q: lambda d: (d.p12>=q)&(d.p18>=q))(q) for q in (0.7,0.8,0.9)}
-cal=pd.DataFrame([dict(q=q,**evaluate("XRPUSDT",r,IS)) for q,r in cands.items()])
-pd.set_option("display.width",250)
-print("[XRP IS calibration]"); print(cal[["q","sig_rate","A","B","AB","p_AB","n_trades","win","mean_ret_pct"]].round(3).to_string(index=False))
-qbest=cal.loc[cal.AB.idxmax(),"q"]; RULE=cands[qbest]
-print(f"\n=> 凍結ルール: 30日ローリング百分位で  MA24乖離/rv24 >= {qbest:.0%}  かつ  (RSI14-50)*exp(出来高z) >= {qbest:.0%}  → ロング, TP+5% / SL-5% / 24h時間切れ, 手数料0.1%")
-# ---- 2) frozen-rule tests ----
-res=[dict(set="XRP OOS",**evaluate("XRPUSDT",RULE,OOS))]
-for s in ["SOLUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","LTCUSDT","BNBUSDT","DOTUSDT","TRXUSDT","ETHUSDT","BTCUSDT"]:
-    res.append(dict(set="他通貨(全期間)",**evaluate(s,RULE)))
-res=pd.DataFrame(res)
-pp=res.p_AB.fillna(1).values; o=np.argsort(pp); q=pp[o]*len(pp)/np.arange(1,len(pp)+1)
-res.loc[o,"q_AB"]=np.minimum(np.minimum.accumulate(q[::-1])[::-1],1)
-res.to_csv(f"{D}/results_rule_fee{FEE*100:.2f}pct.csv",index=False,encoding="utf-8-sig")
-print(res[["set","sym","sig_rate","A","B","AB","base_AB","p_AB","q_AB","n_trades","win","p_win","mean_ret_pct","p_ret","total_ret_pct"]].round(3).to_string(index=False))
-# pooled across other coins (each coin equally; trade-level)
-o=res.iloc[1:]; print("\n他通貨: A/B>1 の数 %d/%d, A/B>=2 の数 %d, p_AB<.05(A>B) の数 %d, 平均トレード収益>0 の数 %d"%(
- (o.AB>1).sum(),len(o),(o.AB>=2).sum(),((o.p_AB<.05)&(o.AB>1)).sum(),(o.mean_ret_pct>0).sum()))
-print("符号検定(A/B>1 が偶然か) p=%.4f"%stats.binomtest(int((o.AB>1).sum()),len(o),0.5).pvalue)
+if __name__=="__main__":
+    # ---- 1) calibration on XRP in-sample (first 70%) : 3 candidate thresholds only ----
+    xi=feats(load("XRPUSDT")).dropna().index; cut=xi[int(len(xi)*.7)]; gap=cut+pd.Timedelta(hours=24)
+    IS=lambda ix: ix<cut; OOS=lambda ix: ix>=gap
+    cands={q:(lambda q: lambda d: (d.p12>=q)&(d.p18>=q))(q) for q in (0.7,0.8,0.9)}
+    cal=pd.DataFrame([dict(q=q,**evaluate("XRPUSDT",r,IS)) for q,r in cands.items()])
+    pd.set_option("display.width",250)
+    print("[XRP IS calibration]"); print(cal[["q","sig_rate","A","B","AB","p_AB","n_trades","win","mean_ret_pct"]].round(3).to_string(index=False))
+    qbest=cal.loc[cal.AB.idxmax(),"q"]; RULE=cands[qbest]
+    print(f"\n=> 凍結ルール: 30日ローリング百分位で  MA24乖離/rv24 >= {qbest:.0%}  かつ  (RSI14-50)*exp(出来高z) >= {qbest:.0%}  → ロング, TP+5% / SL-5% / 24h時間切れ, 手数料0.1%")
+    # ---- 2) frozen-rule tests ----
+    res=[dict(set="XRP OOS",**evaluate("XRPUSDT",RULE,OOS))]
+    for s in ["SOLUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","LTCUSDT","BNBUSDT","DOTUSDT","TRXUSDT","ETHUSDT","BTCUSDT"]:
+        res.append(dict(set="他通貨(全期間)",**evaluate(s,RULE)))
+    res=pd.DataFrame(res)
+    pp=res.p_AB.fillna(1).values; o=np.argsort(pp); q=pp[o]*len(pp)/np.arange(1,len(pp)+1)
+    res.loc[o,"q_AB"]=np.minimum(np.minimum.accumulate(q[::-1])[::-1],1)
+    res.to_csv(f"{D}/results_rule_fee{FEE*100:.2f}pct.csv",index=False,encoding="utf-8-sig")
+    print(res[["set","sym","sig_rate","A","B","AB","base_AB","p_AB","q_AB","n_trades","win","p_win","mean_ret_pct","p_ret","total_ret_pct"]].round(3).to_string(index=False))
+    # pooled across other coins (each coin equally; trade-level)
+    o=res.iloc[1:]; print("\n他通貨: A/B>1 の数 %d/%d, A/B>=2 の数 %d, p_AB<.05(A>B) の数 %d, 平均トレード収益>0 の数 %d"%(
+     (o.AB>1).sum(),len(o),(o.AB>=2).sum(),((o.p_AB<.05)&(o.AB>1)).sum(),(o.mean_ret_pct>0).sum()))
+    print("符号検定(A/B>1 が偶然か) p=%.4f"%stats.binomtest(int((o.AB>1).sum()),len(o),0.5).pvalue)
