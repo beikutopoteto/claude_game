@@ -1,6 +1,7 @@
 """Trend-continuation rule from T12 & T18; calibrated on XRP in-sample only, then frozen."""
 import numpy as np, pandas as pd, os, warnings; from scipy import stats; warnings.filterwarnings("ignore")
-D=os.path.dirname(os.path.abspath(__file__)); FEE=0.001  # round-trip 0.1%
+D=os.path.dirname(os.path.abspath(__file__))
+FEE=float(os.environ.get("FEE","0.003"))  # round-trip; default = bitFlyer Lightning spot 0.15%x2 (30d vol <100k JPY)
 def load(s): return pd.read_csv(f"{D}/data/{s}_1h.csv",index_col=0,parse_dates=True).iloc[:-1]
 def feats(x):
     C,H,L,V=x.close,x.high,x.low,x.volume; r1=np.log(C/C.shift())
@@ -60,7 +61,7 @@ for s in ["SOLUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","LTCUSDT","BNBUSD
 res=pd.DataFrame(res)
 pp=res.p_AB.fillna(1).values; o=np.argsort(pp); q=pp[o]*len(pp)/np.arange(1,len(pp)+1)
 res.loc[o,"q_AB"]=np.minimum(np.minimum.accumulate(q[::-1])[::-1],1)
-res.to_csv(f"{D}/results_rule.csv",index=False,encoding="utf-8-sig")
+res.to_csv(f"{D}/results_rule_fee{FEE*100:.2f}pct.csv",index=False,encoding="utf-8-sig")
 print(res[["set","sym","sig_rate","A","B","AB","base_AB","p_AB","q_AB","n_trades","win","p_win","mean_ret_pct","p_ret","total_ret_pct"]].round(3).to_string(index=False))
 # pooled across other coins (each coin equally; trade-level)
 o=res.iloc[1:]; print("\n他通貨: A/B>1 の数 %d/%d, A/B>=2 の数 %d, p_AB<.05(A>B) の数 %d, 平均トレード収益>0 の数 %d"%(
